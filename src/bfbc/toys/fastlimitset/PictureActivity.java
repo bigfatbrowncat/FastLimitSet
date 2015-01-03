@@ -34,8 +34,8 @@ public class PictureActivity extends Activity {
      */
     private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
 
-    private int scale = 16;
-    private int newScale = 16;
+    private int scale = 32;
+    private int newScale = 32;
     private int screenWidth, screenHeight;
     private int width, height;
     private Bitmap picture;
@@ -156,7 +156,10 @@ public class PictureActivity extends Activity {
     
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-    	// TODO Auto-generated method stub
+    	switch (item.getItemId()) {
+    	case R.id.test:
+    		//getActionBar().setTitle(String.valueOf(NativeLimitSetCalculator.testFormula("return 1 + 2 + 3")));
+    	}
     	return super.onOptionsItemSelected(item);
     }
 
