@@ -34,79 +34,75 @@ extern "C" double atof(const char *nptr)
     return (strtod(nptr, NULL));
 }
 
-void calculate(string xExpression, string yExpression, int width, int height, int* counterBody, double* xBody, double* yBody, int steps) {
+void calculate(string expression, int width, int height, int* counterBody, double* xBody, double* yBody, int steps) {
 
-  	ParserVariables xVars, yVars;
+  	ParserVariables vars;
 
-  	ParserNode* xExpressionRoot = NULL;
-  	ParserNode* yExpressionRoot = NULL;
+  	ParserNode* expressionRoot = NULL;
   	Module* mainModule = NULL;
   	ExecutionEngine* executionEngine = NULL;
   	try
   	{
-		__android_log_print(ANDROID_LOG_INFO, APPNAME, "Compiling x = %s, y = %s", xExpression.c_str(), yExpression.c_str());
+		__android_log_print(ANDROID_LOG_INFO, APPNAME, "Compiling %s", expression.c_str());
 		InitializeNativeTarget();
 		LLVMContext context;
 
-		// Creating the main module
 		mainModule = new Module("Main", context);
 
 		Type* doubleType = Type::getDoubleTy(context);
 
-		// Parsing the formula
-		LexerTree xExpressionLexerTree(xExpression), yExpressionLexerTree(yExpression);
+		LexerTree xExpressionLexerTree(expression);
 
 		ParserOperatorPriorities pop;
 		Parser formulaParser(pop);
 
-		//Type* doubleComplexType = VectorType::get(doubleType, 2);
+		GlobalVariable* xGV = new GlobalVariable(*mainModule, doubleType,
+						false, GlobalValue::ExternalLinkage,
+						ConstantFP::get(doubleType, 0.0), "xG");
+		GlobalVariable* yGV = new GlobalVariable(*mainModule, doubleType,
+						false, GlobalValue::ExternalLinkage,
+						ConstantFP::get(doubleType, 0.0), "yG");
 
-
-		// Creating the functions
-		// double xFunction(x, y, x0, y0)
-		Function *xFunction = cast<Function>(mainModule->getOrInsertFunction("calcX", doubleType, doubleType, doubleType, doubleType, doubleType, (Type *)0));
+		// double formula(x, y, x0, y0)
+		Function *formula = cast<Function>(mainModule->getOrInsertFunction("formula", Type::getVoidTy(context), doubleType, doubleType, doubleType, doubleType, (Type *)0));
 		{
-			Function::arg_iterator xFuncArgs = xFunction->arg_begin();
-			xFuncArgs->setName("x");
-			xVars.defineExternal("x", tDouble, xFuncArgs);
-			xFuncArgs++;
-			xFuncArgs->setName("y");
-			xVars.defineExternal("y", tDouble, xFuncArgs);
-			xFuncArgs++;
-			xFuncArgs->setName("x0");
-			xVars.defineExternal("x0", tDouble, xFuncArgs);
-			xFuncArgs++;
-			xFuncArgs->setName("y0");
-			xVars.defineExternal("y0", tDouble, xFuncArgs);
-			xFuncArgs++;
-		}
-		BasicBlock *xFunctionEntryBlock = BasicBlock::Create(context, "calcX_entry_block", xFunction);
-		IRBuilder<> builder(xFunctionEntryBlock);
-		xExpressionRoot = formulaParser.parseFlow(xExpressionLexerTree.getRoot().getInnerItems(), xVars);
-		Value* xFormulaVal = xExpressionRoot->generateGetValueLLVMCode(builder);
+			// Storing function argumnts
+			Function::arg_iterator xFuncArgs = formula->arg_begin();
+			vars.defineExternal("x", tDouble, xFuncArgs++);
+			vars.defineExternal("y", tDouble, xFuncArgs++);
+			vars.defineExternal("x0", tDouble, xFuncArgs++);
+			vars.defineExternal("y0", tDouble, xFuncArgs);
 
-		// double yFunction(x, y, x0, y0)
-		Function *yFunction = cast<Function>(mainModule->getOrInsertFunction("calcY", doubleType, doubleType, doubleType, doubleType, doubleType, (Type *)0));
+			// Defining local variables
+			vars.define("xn", tDouble, true);
+			vars.define("yn", tDouble, true);
+
+			// Parsing the user formula
+			expressionRoot = formulaParser.parseFlow(xExpressionLexerTree.getRoot().getInnerItems(), vars);
+
+			// Building code
+			BasicBlock *xFunctionEntryBlock = BasicBlock::Create(context, "formula_entry", formula);
+			IRBuilder<> builder(xFunctionEntryBlock);
+
+			// Generating variables inititalization
+			vars.generateVariableCreationLLVMCode("xn", tDouble, builder);
+			vars.generateVariableCreationLLVMCode("yn", tDouble, builder);
+
+			// Generating the formula code
+			Value* xFormulaVal = expressionRoot->generateGetValueLLVMCode(builder);
+
+			builder.CreateStore(vars.generateLLVMVariableGetValueCode("xn", tDouble, builder), xGV, true);
+			builder.CreateStore(vars.generateLLVMVariableGetValueCode("yn", tDouble, builder), yGV, true);
+
+			builder.CreateRetVoid();
+		}
+
 		{
-			Function::arg_iterator yFuncArgs = yFunction->arg_begin();
-			yFuncArgs->setName("x");
-			yVars.defineExternal("x", tDouble, yFuncArgs);
-			yFuncArgs++;
-			yFuncArgs->setName("y");
-			yVars.defineExternal("y", tDouble, yFuncArgs);
-			yFuncArgs++;
-			yFuncArgs->setName("x0");
-			yVars.defineExternal("x0", tDouble, yFuncArgs);
-			yFuncArgs++;
-			yFuncArgs->setName("y0");
-			yVars.defineExternal("y0", tDouble, yFuncArgs);
-			yFuncArgs++;
+			string listStr;
+			raw_string_ostream listStream(listStr);
+			mainModule->print(listStream, NULL);
+			__android_log_print(ANDROID_LOG_INFO, APPNAME, "[ FORMULA ]\n%s", listStr.c_str());
 		}
-		BasicBlock *yFunctionEntryBlock = BasicBlock::Create(context, "calcY_entry_block", yFunction);
-		builder.SetInsertPoint(yFunctionEntryBlock);
-		yExpressionRoot = formulaParser.parseFlow(yExpressionLexerTree.getRoot().getInnerItems(), yVars);
-		Value* yFormulaVal = yExpressionRoot->generateGetValueLLVMCode(builder);
-
 
 		// ** JITing and executing **
 
@@ -114,11 +110,6 @@ void calculate(string xExpression, string yExpression, int width, int height, in
 		executionEngine = EngineBuilder(mainModule).create();
 
 		// Call the `foo' function with no arguments:
-		std::vector<GenericValue> args;
-		args.push_back(GenericValue());
-		args.push_back(GenericValue());
-		args.push_back(GenericValue());
-		args.push_back(GenericValue());
 
 		__android_log_print(ANDROID_LOG_INFO, APPNAME, "Compiled successfully");
 		for (int i = 0; i < width; i++) {
@@ -126,25 +117,36 @@ void calculate(string xExpression, string yExpression, int width, int height, in
 
 				double x = xBody[j * width + i];
 				double y = yBody[j * width + i];
+
 				int counterVal = counterBody[j * width + i];
 
 				double x0 = (4.0 / width) * i - 2;
 				double y0 = (4.0 / height) * j - 2;
 
-				//GenericValue gv;
+				std::vector<GenericValue> args;
+				args.push_back(GenericValue());
+				args.push_back(GenericValue());
+				args.push_back(GenericValue());
+				args.push_back(GenericValue());
+				args[2].DoubleVal = x0;
+				args[3].DoubleVal = y0;
+
+
 
 				for (int step = 0; step < steps; step++) {
 					if (x*x + y*y < 1000000.0) {
+
 						args[0].DoubleVal = x;
 						args[1].DoubleVal = y;
-						args[2].DoubleVal = x0;
-						args[3].DoubleVal = y0;
 
-						GenericValue xValue = executionEngine->runFunction(xFunction, args);
-						GenericValue yValue = executionEngine->runFunction(yFunction, args);
+						GenericValue res = executionEngine->runFunction(formula, args);
+						double* pxGV = (double*)executionEngine->getPointerToGlobal(xGV);
+						double* pyGV = (double*)executionEngine->getPointerToGlobal(yGV);
 
-						x = xValue.DoubleVal;
-						y = yValue.DoubleVal;
+						x = *pxGV;
+						y = *pyGV;
+
+						//__android_log_print(ANDROID_LOG_INFO, APPNAME, "x: %lf, y: %lf", x, y);
 						counterVal ++;
 					} else {
 						break;
@@ -160,31 +162,29 @@ void calculate(string xExpression, string yExpression, int width, int height, in
 
 
 		// Import result of execution:
-		executionEngine->freeMachineCodeForFunction(xFunction);
-		executionEngine->freeMachineCodeForFunction(yFunction);
+		executionEngine->freeMachineCodeForFunction(formula);
   	}
   	catch (const LexerException& lexerException)
   	{
-  		printf("Lexer is asking for excuse. %s\n", lexerException.getMessage().c_str());
-  		fflush(stdout);
-  		//return -1;
+  		__android_log_print(ANDROID_LOG_ERROR, APPNAME, "Lexer is asking for excuse. %s\n", lexerException.getMessage().c_str());
   	}
   	catch (const ParserException& parserException)
   	{
-  		printf("Parser is asking for excuse. %s\n", parserException.getMessage().c_str());
-  		fflush(stdout);
-  		//return -1;
+  		__android_log_print(ANDROID_LOG_ERROR, APPNAME, "Parser is asking for excuse. %s\n", parserException.getMessage().c_str());
+  	}
+  	catch (...)
+  	{
+  		__android_log_print(ANDROID_LOG_ERROR, APPNAME, "Unknown exception");
   	}
 
-  	if (xExpressionRoot != NULL) delete xExpressionRoot;
-  	if (yExpressionRoot != NULL) delete yExpressionRoot;
+  	if (expressionRoot != NULL) delete expressionRoot;
 
 	llvm_shutdown();
 	//return 0;
 }
 
 extern "C" {
-	/*JNIEXPORT void JNICALL Java_bfbc_toys_fastlimitset_NativeLimitSetCalculator_doSteps(JNIEnv* env, jclass clz, jint width, jint height, jintArray counter, jdoubleArray x, jdoubleArray y, jint steps) {
+	JNIEXPORT void JNICALL Java_bfbc_toys_fastlimitset_NativeLimitSetCalculator_doStepsMandelbrot(JNIEnv* env, jclass clz, jint width, jint height, jintArray counter, jdoubleArray x, jdoubleArray y, jint steps) {
 		jint *counterBody = env->GetIntArrayElements(counter, 0);
 		jdouble *xBody = env->GetDoubleArrayElements(x, 0);
 		jdouble *yBody = env->GetDoubleArrayElements(y, 0);
@@ -220,18 +220,17 @@ extern "C" {
 		env->ReleaseDoubleArrayElements(x, xBody, 0);
 		env->ReleaseDoubleArrayElements(y, yBody, 0);
 
-	}*/
+	}
 
-	JNIEXPORT void JNICALL Java_bfbc_toys_fastlimitset_NativeLimitSetCalculator_doStepsExpression(JNIEnv* env, jclass clz, jstring xExpression, jstring yExpression, jint width, jint height, jintArray counter, jdoubleArray x, jdoubleArray y, jint steps) {
-	    const char *xExpressionStr, *yExpressionStr;
-	    xExpressionStr = env->GetStringUTFChars(xExpression, NULL);
-	    yExpressionStr = env->GetStringUTFChars(yExpression, NULL);
+	JNIEXPORT void JNICALL Java_bfbc_toys_fastlimitset_NativeLimitSetCalculator_doStepsExpression(JNIEnv* env, jclass clz, jstring expression, jint width, jint height, jintArray counter, jdoubleArray x, jdoubleArray y, jint steps) {
+	    const char *expressionStr;
+	    expressionStr = env->GetStringUTFChars(expression, NULL);
 
 	    jint *counterBody = env->GetIntArrayElements(counter, 0);
 		jdouble *xBody = env->GetDoubleArrayElements(x, 0);
 		jdouble *yBody = env->GetDoubleArrayElements(y, 0);
 
-		calculate((string)xExpressionStr, (string)yExpressionStr, width, height, counterBody, xBody, yBody, steps);
+		calculate((string)expressionStr, width, height, counterBody, xBody, yBody, steps);
 
 		env->ReleaseIntArrayElements(counter, counterBody, 0);
 		env->ReleaseDoubleArrayElements(x, xBody, 0);

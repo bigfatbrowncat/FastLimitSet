@@ -75,10 +75,9 @@ public class LimitSetCalculatorService extends Service {
 	    	// Calculating the limit set
 			int delta = 50;
 			steps += delta;
-			//double x1 = x*x - y*y + x0;
-			//double y1 = 2*x*y + y0;
 			
-			NativeLimitSetCalculator.doStepsExpression("return x*x - y*y + x0", "return 1.7*x*y + y0", pictureWidth, pictureHeight, counter, x, y, delta);
+			NativeLimitSetCalculator.doStepsExpression("xn = x*x - y*y + x0; yn = 2*x*y + y0", pictureWidth, pictureHeight, counter, x, y, delta);
+//			NativeLimitSetCalculator.doStepsMandelbrot(pictureWidth, pictureHeight, counter, x, y, delta);
 			
 			Bundle resultData = new Bundle();
 			resultData.putInt(RESULT_BUNDLE_PICTURE_WIDTH, pictureWidth);
