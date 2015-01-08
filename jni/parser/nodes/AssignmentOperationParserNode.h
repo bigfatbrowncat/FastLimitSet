@@ -39,7 +39,7 @@ public:
 		if (first->canBeAssigned())
 		{
 			first->generateSetValueLLVMCode(secondVal, builder);
-			return first->generateGetValueLLVMCode(builder);
+			return NULL;//first->generateGetValueLLVMCode(builder);
 		}
 		else
 		{

@@ -64,16 +64,16 @@ void calculate(string expression, int width, int height, int* counterBody, doubl
 						ConstantFP::get(doubleType, 0.0), "yG");
 
 		// double formula(x, y, x0, y0)
-		Function *formula = cast<Function>(mainModule->getOrInsertFunction("formula", Type::getVoidTy(context), doubleType, doubleType, doubleType, doubleType, (Type *)0));
+		Function *formula = cast<Function>(mainModule->getOrInsertFunction("formula", Type::getVoidTy(context), doubleType, doubleType, (Type *)0));
 		{
 			// Storing function argumnts
 			Function::arg_iterator xFuncArgs = formula->arg_begin();
-			vars.defineExternal("x", tDouble, xFuncArgs++);
-			vars.defineExternal("y", tDouble, xFuncArgs++);
 			vars.defineExternal("x0", tDouble, xFuncArgs++);
 			vars.defineExternal("y0", tDouble, xFuncArgs);
 
 			// Defining local variables
+			vars.defineExternal("x", tDouble, xGV, true);
+			vars.defineExternal("y", tDouble, yGV, true);
 			vars.define("xn", tDouble, true);
 			vars.define("yn", tDouble, true);
 
@@ -84,7 +84,7 @@ void calculate(string expression, int width, int height, int* counterBody, doubl
 			BasicBlock *xFunctionEntryBlock = BasicBlock::Create(context, "formula_entry", formula);
 			IRBuilder<> builder(xFunctionEntryBlock);
 
-			// Generating variables inititalization
+			// Generating variables initialization
 			vars.generateVariableCreationLLVMCode("xn", tDouble, builder);
 			vars.generateVariableCreationLLVMCode("yn", tDouble, builder);
 
@@ -104,12 +104,7 @@ void calculate(string expression, int width, int height, int* counterBody, doubl
 			__android_log_print(ANDROID_LOG_INFO, APPNAME, "[ FORMULA ]\n%s", listStr.c_str());
 		}
 
-		// ** JITing and executing **
-
-		// Now we create the JIT.
 		executionEngine = EngineBuilder(mainModule).create();
-
-		// Call the `foo' function with no arguments:
 
 		__android_log_print(ANDROID_LOG_INFO, APPNAME, "Compiled successfully");
 		for (int i = 0; i < width; i++) {
@@ -126,32 +121,31 @@ void calculate(string expression, int width, int height, int* counterBody, doubl
 				std::vector<GenericValue> args;
 				args.push_back(GenericValue());
 				args.push_back(GenericValue());
-				args.push_back(GenericValue());
-				args.push_back(GenericValue());
-				args[2].DoubleVal = x0;
-				args[3].DoubleVal = y0;
+				args[0].DoubleVal = x0;
+				args[1].DoubleVal = y0;
 
+				double* pxGV = (double*)executionEngine->getPointerToGlobal(xGV);
+				double* pyGV = (double*)executionEngine->getPointerToGlobal(yGV);
 
-
-				for (int step = 0; step < steps; step++) {
+				for (int step = 0; step < steps; step ++) {
 					if (x*x + y*y < 1000000.0) {
 
-						args[0].DoubleVal = x;
-						args[1].DoubleVal = y;
+						*pxGV = x;
+						*pyGV = y;
 
 						GenericValue res = executionEngine->runFunction(formula, args);
-						double* pxGV = (double*)executionEngine->getPointerToGlobal(xGV);
-						double* pyGV = (double*)executionEngine->getPointerToGlobal(yGV);
 
 						x = *pxGV;
 						y = *pyGV;
 
-						//__android_log_print(ANDROID_LOG_INFO, APPNAME, "x: %lf, y: %lf", x, y);
 						counterVal ++;
 					} else {
 						break;
 					}
 				}
+
+				//__android_log_print(ANDROID_LOG_INFO, APPNAME, "x: %lf, y: %lf", x, y);
+
 
 				xBody[j * width + i] = x;
 				yBody[j * width + i] = y;
