@@ -54,31 +54,37 @@ public class PictureActivity extends Activity {
 			int pictureHeight = resultData.getInt(LimitSetCalculatorService.RESULT_BUNDLE_PICTURE_HEIGHT);
 			int[] counter = resultData.getIntArray(LimitSetCalculatorService.RESULT_BUNDLE_COUNTER);
 			int steps = resultData.getInt(LimitSetCalculatorService.RESULT_BUNDLE_STEPS);
-			scale = newScale;
-
-        	picture = Bitmap.createBitmap(pictureWidth, pictureHeight, Config.ARGB_8888);
+			boolean success = resultData.getBoolean(LimitSetCalculatorService.RESULT_BUNDLE_SUCCESS);
 			
-	    	// Filling in pixels
-	    	int[] pixels = new int[pictureWidth * pictureHeight];
-	    	for (int i = 0; i < pictureWidth; i++) {
-				for (int j = 0; j < pictureHeight; j++) {
-					byte b = (byte)((double)counter[j * pictureWidth + i] / steps * 0xFF);
-					byte g = (byte)((double)counter[j * pictureWidth + i] / steps * 0xFF);
-					byte r = (byte)((double)counter[j * pictureWidth + i] / steps * 0xFF);
-					pixels[j * pictureWidth + i] = 0xff000000 + b + g * 0x100 + r * 0x10000;
+			if (success) {
+				scale = newScale;
+	
+	        	picture = Bitmap.createBitmap(pictureWidth, pictureHeight, Config.ARGB_8888);
+				
+		    	// Filling in pixels
+		    	int[] pixels = new int[pictureWidth * pictureHeight];
+		    	for (int i = 0; i < pictureWidth; i++) {
+					for (int j = 0; j < pictureHeight; j++) {
+						byte b = (byte)((double)counter[j * pictureWidth + i] / steps * 0xFF);
+						byte g = (byte)((double)counter[j * pictureWidth + i] / steps * 0xFF);
+						byte r = (byte)((double)counter[j * pictureWidth + i] / steps * 0xFF);
+						pixels[j * pictureWidth + i] = 0xff000000 + b + g * 0x100 + r * 0x10000;
+					}
 				}
+		    	picture.setPixels(pixels, 0, pictureWidth, 0, 0, pictureWidth, pictureHeight);
+		    	
+		    	pictureImageView.setImageBitmap(picture);
+		    	updatePictureMatrix();
+		    	
+		    	if (scale > 2) {
+		    		newScale = scale / 2;
+		            LimitSetCalculatorService.start(PictureActivity.this, width / newScale, height / newScale, new LimitSetIsBuiltResultReceiver(new Handler()));
+	
+		    		//PainterService.proceed(PictureActivity.this);
+		    	}
+			} else {
+				throw new RuntimeException("No success from native code");
 			}
-	    	picture.setPixels(pixels, 0, pictureWidth, 0, 0, pictureWidth, pictureHeight);
-	    	
-	    	pictureImageView.setImageBitmap(picture);
-	    	updatePictureMatrix();
-	    	
-	    	if (scale > 2) {
-	    		newScale = scale / 2;
-	            LimitSetCalculatorService.start(PictureActivity.this, width / newScale, height / newScale, new LimitSetIsBuiltResultReceiver(new Handler()));
-
-	    		//PainterService.proceed(PictureActivity.this);
-	    	}
 		}
 	}
 	

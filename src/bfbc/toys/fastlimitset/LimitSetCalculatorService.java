@@ -19,6 +19,7 @@ public class LimitSetCalculatorService extends Service {
 	public static final String RESULT_BUNDLE_PICTURE_WIDTH = "width";
 	public static final String RESULT_BUNDLE_PICTURE_HEIGHT = "height";
 	public static final String RESULT_BUNDLE_STEPS = "steps";
+	public static final String RESULT_BUNDLE_SUCCESS = "success";
 	
 	public static void start(Context context, int pictureWidth, int pictureHeight, ResultReceiver resultReceiver) {
 		Intent intent = new Intent(context, LimitSetCalculatorService.class);
@@ -69,14 +70,14 @@ public class LimitSetCalculatorService extends Service {
 		return null;
 	}
 	
-    private class CountingTask extends AsyncTask<Void, Void, Integer> {
+    private class CountingTask extends AsyncTask<Void, Void, Boolean> {
 		@Override
-		protected Integer doInBackground(Void... params) {
+		protected Boolean doInBackground(Void... params) {
 	    	// Calculating the limit set
 			int delta = 50;
 			steps += delta;
 			
-			NativeLimitSetCalculator.doStepsExpression("xn = x*x - y*y + x0; yn = 2*x*y + y0", pictureWidth, pictureHeight, counter, x, y, delta);
+			boolean res = NativeLimitSetCalculator.doStepsExpression("xn = x*x - y*y + x0; yn = 2*x*y + y0", pictureWidth, pictureHeight, counter, x, y, delta);
 //			NativeLimitSetCalculator.doStepsMandelbrot(pictureWidth, pictureHeight, counter, x, y, delta);
 			
 			Bundle resultData = new Bundle();
@@ -84,9 +85,10 @@ public class LimitSetCalculatorService extends Service {
 			resultData.putInt(RESULT_BUNDLE_PICTURE_HEIGHT, pictureHeight);
 			resultData.putInt(RESULT_BUNDLE_STEPS, steps);
 			resultData.putIntArray(RESULT_BUNDLE_COUNTER, counter);
+			resultData.putBoolean(RESULT_BUNDLE_SUCCESS, res);
 			
 			resultReceiver.send(0, resultData);
-			return 0;
+			return res;
 		}
     }
     

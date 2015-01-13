@@ -6,9 +6,6 @@
 
 LOCAL_PATH := $(call my-dir)
 
-#-lLLVMARMDisassembler -lLLVMARMCodeGen -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMCodeGen -lLLVMScalarOpts -lLLVMInstCombine -lLLVMTransformUtils -lLLVMipa -lLLVMAnalysis -lLLVMTarget -lLLVMCore -lLLVMARMAsmParser -lLLVMMCParser -lLLVMARMDesc -lLLVMARMInfo -lLLVMARMAsmPrinter -lLLVMMC -lLLVMSupport
-#-lLLVMJIT -lLLVMExecutionEngine -lLLVMCodeGen -lLLVMScalarOpts -lLLVMInstCombine -lLLVMTransformUtils -lLLVMipa -lLLVMAnalysis -lLLVMTarget -lLLVMMC -lLLVMCore -lLLVMSupport
-
 # LLVMARMDisassembler
 include $(CLEAR_VARS)
 LOCAL_MODULE          := LLVMARMDisassembler
@@ -163,6 +160,61 @@ LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
 LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
 include $(PREBUILT_STATIC_LIBRARY)
 
+# LLVMMCJIT
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMMCJIT
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMRuntimeDyld
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMRuntimeDyld
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMObject
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMObject
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMBitReader
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMBitReader
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMBitWriter
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMBitWriter
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMipo
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMipo
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMInstrumentation
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMInstrumentation
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
+
+# LLVMLTO
+include $(CLEAR_VARS)
+LOCAL_MODULE          := LLVMLTO
+LOCAL_MODULE_FILENAME := lib$(LOCAL_MODULE)
+LOCAL_SRC_FILES := ../llvm-3.5-arm/lib/$(LOCAL_MODULE_FILENAME).a
+include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := FastLimitSet
@@ -173,14 +225,20 @@ FILE_LIST := $(wildcard $(LOCAL_PATH)/lexer/*.cpp) \
 
 LOCAL_SRC_FILES := FastLimitSet.cpp \
                    $(FILE_LIST:$(LOCAL_PATH)/%=%)
+                   # \
+                   #coffeecatch/coffeecatch.c \
+                   #coffeecatch/coffeejni.c -D_REENTRANT -D_GNU_SOURCE
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../llvm-3.5-arm/include
-LOCAL_CFLAGS += -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -std=c++11 -fexceptions
-LOCAL_LDLIBS := -L$(SYSROOT)/usr/lib -lz -latomic -llog
+LOCAL_CFLAGS += -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -funwind-tables -std=c++11 -fexceptions
+LOCAL_LDLIBS := -L$(SYSROOT)/usr/lib -lz -latomic -llog -ldl -lc -lm
 
-LOCAL_STATIC_LIBRARIES := LLVMJIT \
+LOCAL_STATIC_LIBRARIES := LLVMInterpreter \
+                          LLVMMCJIT \
+                          LLVMRuntimeDyld \
+                          LLVMObject \
+                          LLVMBitReader \
                           LLVMExecutionEngine \
-                          LLVMInterpreter \
                           LLVMARMDisassembler \
                           LLVMARMCodeGen \
                           LLVMSelectionDAG \
@@ -192,14 +250,15 @@ LOCAL_STATIC_LIBRARIES := LLVMJIT \
                           LLVMipa \
                           LLVMAnalysis \
                           LLVMTarget \
-                          LLVMCore \
                           LLVMARMAsmParser \
                           LLVMMCParser \
                           LLVMARMDesc \
                           LLVMARMInfo \
                           LLVMARMAsmPrinter \
                           LLVMMC \
+                          LLVMCore \
                           LLVMSupport
-                          
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(call all-subdir-makefiles)
